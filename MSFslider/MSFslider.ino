@@ -28,7 +28,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 //http://www.airspayce.com/mikem/arduino/AccelStepper/index.html
 
 #include <AccelStepper.h>
-#include <MultiStepper.h>
+// #include <MultiStepper.h>
 #include <LiquidCrystal_I2C.h>
 #include <HighPowerStepperDriver.h>
 #include <SPI.h>
@@ -373,7 +373,7 @@ void setup()
     {
       ifAppCtrl = true;
       initCalibration();
-      sendMotorRanges(); //answers to the application about motors' ranges
+      // sendMotorRanges(); //answers to the application about motors' ranges
       calibrated = true;
     }
     if (sign == CMD_HI) // dragonframe connected, start from its mode
@@ -590,7 +590,7 @@ void setupPanDriver()
 // Callibrates each stepper motor to home position
 void initCalibration()
 {
-  bool calibSlide, calibSlideRight, calibPan, calibPanRight, calibTilt, calibTiltRight, calibTiltLeft = false;
+  bool calibSlide = false, calibSlideRight = false, calibPan = false, calibPanRight = false, calibTilt = false, calibTiltRight = false, calibTiltLeft = false;
 
   lcd.print(F("Calibrating..."));
   lcd.setCursor(0, 1);
@@ -698,7 +698,15 @@ void initCalibration()
     stepperTilt.run();
   }
 
+  sendMotorRanges(); 
   clearLCD();
+  lcd.print(F("Initial position"));
+  lcd.setCursor(0, 1);
+  lcd.print(F("set!"));
+  delay(3000);
+  clearLCD();
+  lcd.print(F("---Live Mode---")); //live mode is default state
+
 
   stepperSlide.setMaxSpeed(slowSlide);
   stepperPan.setMaxSpeed(slowPan);
@@ -749,10 +757,6 @@ void loop()
   // MOBILE APP MODE
   else
   {
-    bool isLiveMode = true;
-    clearLCD();
-    lcd.print(F("Mobile"));
-    initCalibration();
     if (Serial.available())
     {
       char sign = Serial.read();
@@ -761,7 +765,7 @@ void loop()
       {
         isLiveMode = true;
         clearLCD();
-        lcd.print("---Live Mode---");
+        lcd.print(F("---Live Mode---"));
       }
       else if (sign == '^')
       {
