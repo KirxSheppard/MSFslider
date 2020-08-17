@@ -7,7 +7,7 @@
 MSF Slider Copyright (C) 2020  Kamil Janko
 Website: https://github.com/KirxSheppard
 Contact: kamil.janko@megaspacefighter.com
-Version: 1.3
+Version: 1.4
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -30,8 +30,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <AccelStepper.h>
 // #include <MultiStepper.h>
 #include <LiquidCrystal_I2C.h>
-#include <HighPowerStepperDriver.h>
-#include <SPI.h>
+// #include <HighPowerStepperDriver.h>
+// #include <SPI.h>
+#include <TMCStepper.h>
 
 /*
   Modified DFMoco version 1.2.7
@@ -198,6 +199,12 @@ int slideRange, panRange, tiltRange = 0;
 //chip select pin for 36v4 driver programmed with SPI
 #define scs 8
 
+//for TMC5160
+#define SW_MOSI          11 // Software Master Out Slave In (MOSI)
+#define SW_MISO          12 // Software Master In Slave Out (MISO)
+#define SW_SCK           13 // Software Slave Clock (SCK)
+#define R_SENSE 0.075f
+
 //array for multistepper library simultaneous stepper movement
 //long stepperPositions[3];
 
@@ -206,7 +213,9 @@ AccelStepper stepperSlide(AccelStepper::DRIVER, 2, 3); //step, dir was 2,3
 AccelStepper stepperPan(AccelStepper::DRIVER, 9, 10);
 AccelStepper stepperTilt(AccelStepper::DRIVER, 5, 6);
 
-HighPowerStepperDriver tiltDriver;
+// HighPowerStepperDriver tiltDriver;
+
+TMC5160Stepper driver(scs, R_SENSE, SW_MOSI, SW_MISO, SW_SCK);
 // MultiStepper StepperControl;
 
 struct UserCmd
@@ -340,7 +349,10 @@ void setup()
 {
   lcd.begin();
   delay(100);
-  setupPanDriver();
+  
+
+  // setupPanDriver();
+  setupTmc5160();
 
   pinMode(endStopRight, INPUT); //for the right endstop
   pinMode(endStopLeft, INPUT);  //for the left endstop
@@ -560,6 +572,18 @@ ISR(TIMER1_OVF_vect)
   }
 }
 
+void setupTmc5160()
+{
+  SPI.begin();
+  
+  driver.begin();                 //  SPI: Init CS pins and possible SW SPI pins
+  delay(10);
+//  driver.toff(5);                 // Enables driver in software
+  driver.rms_current(1900);        // Set motor RMS current
+  driver.microsteps(32);          // Set microsteps to 1/16th
+  driver.en_pwm_mode(true);
+}
+/*
 void setupPanDriver()
 {
   SPI.begin();
@@ -585,6 +609,7 @@ void setupPanDriver()
   // Enables the motor outputs.
   tiltDriver.enableDriver();
 }
+*/
 
 // Method called during setup
 // Callibrates each stepper motor to home position
@@ -1706,7 +1731,7 @@ void parseCommands(String dataFromCOM)
 void sequenceMode(String dataFromCom)
 {
   clearLCD();
-  lcd.print("-Sequence Mode-");
+  lcd.print(F("-Sequence Mode-"));
 
   parseCommands(dataFromCom);
 
@@ -1820,7 +1845,7 @@ void liveModeSwitch(char sign)
     fullCommand = "";
     break;
   case '*':
-    Serial.println("Live mode set!");
+    Serial.println(F("Live mode set!"));
     break;
   case '^':
     isLiveMode = false;
@@ -1828,11 +1853,11 @@ void liveModeSwitch(char sign)
   case '?':
     if (!stepperSlide.isRunning() && !stepperPan.isRunning() && !stepperSlide.isRunning())
     {
-      Serial.println("! "); //when all stepper motors are in idle
+      Serial.println(F("! ")); //when all stepper motors are in idle
     }
     else
     {
-      Serial.println("~ "); //while stepper motors are moving
+      Serial.println(F("~ ")); //while stepper motors are moving
     }
     fullCommand = "";
     break;
@@ -1845,7 +1870,7 @@ void liveModeSwitch(char sign)
     fullCommand = "";
     break;
   default:
-    Serial.println("Invalid command");
+    Serial.println(F("Invalid command"));
     break;
   }
 }
@@ -1866,11 +1891,11 @@ void sequenceModeSwitch(char sign)
   case '?':
     if (!stepperSlide.isRunning() && !stepperPan.isRunning() && !stepperSlide.isRunning())
     {
-      Serial.println("! "); //when all stepper motors are in idle
+      Serial.println(F("! ")); //when all stepper motors are in idle
     }
     else
     {
-      Serial.println("~ "); //while stepper motors are moving
+      Serial.println(F("~ ")); //while stepper motors are moving
     }
     fullCommand = "";
     break;
@@ -1888,7 +1913,7 @@ void sequenceModeSwitch(char sign)
     isLiveMode = true;
     break;
   case '^':
-    Serial.println("Sequence mode set!");
+    Serial.println(F("Sequence mode set!"));
     break;
   default:
     fullCommand += sign;
