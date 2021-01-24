@@ -7,7 +7,7 @@
 MSF Slider Copyright (C) 2020  Kamil Janko
 Website: https://github.com/KirxSheppard
 Contact: kamil.janko@megaspacefighter.com
-Version: 1.4
+Version: 1.4.5
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -22,27 +22,25 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-*/
 
-//Library - AccelStepper by Mike McCauley:
-//http://www.airspayce.com/mikem/arduino/AccelStepper/index.html
+
+Library - AccelStepper by Mike McCauley:
+http://www.airspayce.com/mikem/arduino/AccelStepper/index.html
+*/
 
 #include <AccelStepper.h>
 // #include <MultiStepper.h>
-#include <LiquidCrystal_I2C.h>
+// #include <LiquidCrystal_I2C.h>
 // #include <HighPowerStepperDriver.h>
-// #include <SPI.h>
 #include <TMCStepper.h>
 
 /*
   Modified DFMoco version 1.2.7
   
   Multi-axis motion control.
-  For use with the Arc motion control system in Dragonframe 3.
+  For use with the Arc motion control system in Dragonframe.
   Generates step and direction signals, which can be sent to stepper motor drivers.
    
-  Control up to four axes with an Uno or Duemilanove board.
-
   Pin configuration:
   
   channel 1
@@ -340,20 +338,16 @@ Motor motors[MOTOR_COUNT];
 
 bool ifAppCtrl = false;
 
-LiquidCrystal_I2C lcd(0x27, 2, 16);
+// LiquidCrystal_I2C lcd(0x27, 2, 16);
 
 /*
  * setup() gets called once, at the start of the program.
  */
 void setup()
 {
-  lcd.begin();
+  // lcd.begin();
   delay(100);
   
-
-  // setupPanDriver();
-  setupTmc5160();
-
   pinMode(endStopRight, INPUT); //for the right endstop
   pinMode(endStopLeft, INPUT);  //for the left endstop
   pinMode(endStopTiltLeft, INPUT);
@@ -364,12 +358,15 @@ void setup()
   // setup serial connection
   Serial.begin(57600);
 
+  // setupPanDriver();
+  setupTmc5160();
+
   //initial message
   sendMessage(MSG_HI, 0);
 
   //waits for the connection from mobile app or Dragonframe
   clearLCD();
-  lcd.print(F("Waiting..."));
+  // lcd.print(F("Waiting..."));
   char sign;
   bool calibrated = false;
   delay(1000);
@@ -390,11 +387,11 @@ void setup()
     }
     if (sign == CMD_HI) // dragonframe connected, start from its mode
     {
-      clearLCD();
-      lcd.print(F("Dragonframe Mode"));
-      lcd.setCursor(0, 1);
-      lcd.print(F("DFMoco "));
-      lcd.print(DFMOCO_VERSION_STRING);
+      // clearLCD();
+      // lcd.print(F("Dragonframe Mode"));
+      // lcd.setCursor(0, 1);
+      // lcd.print(F("DFMoco "));
+      // lcd.print(DFMOCO_VERSION_STRING);
       calibrated = true;
     }
   }
@@ -478,6 +475,7 @@ void setup()
   }
 }
 
+#if (!ifAppCtrl)
 ISR(TIMER1_OVF_vect)
 {
 
@@ -571,19 +569,22 @@ ISR(TIMER1_OVF_vect)
       // PIN_OFF(MOTOR3_STEP_PORT, MOTOR3_STEP_PIN);
   }
 }
+#endif
 
 void setupTmc5160()
 {
-  SPI.begin();
-  
+  // SPI.begin();
+
   driver.begin();                 //  SPI: Init CS pins and possible SW SPI pins
-  delay(10);
-//  driver.toff(5);                 // Enables driver in software
+  // delay(10);
+  driver.toff(4);                 // Enables driver in software
+  driver.blank_time(24);
   driver.rms_current(1900);        // Set motor RMS current
   driver.microsteps(32);          // Set microsteps to 1/16th
   driver.en_pwm_mode(true);
 }
 /*
+//Alternate function for Pololu 36v4 driver
 void setupPanDriver()
 {
   SPI.begin();
@@ -617,20 +618,19 @@ void initCalibration()
 {
   bool calibSlide = false, calibSlideRight = false, calibPan = false, calibPanRight = false, calibTilt = false, calibTiltRight = false, calibTiltLeft = false;
 
-  lcd.print(F("Calibrating..."));
-  lcd.setCursor(0, 1);
-  lcd.print(F("S:x P:x T:x"));
+  // lcd.print(F("Calibrating..."));
+  // lcd.setCursor(0, 1);
+  // lcd.print(F("S:x P:x T:x"));
 
   stepperSlide.setMaxSpeed(2200);
   stepperSlide.setAcceleration(600);
   stepperSlide.moveTo(100000);
-  // stepperSlide.moveTo(10000);
 
-  stepperPan.setMaxSpeed(400);
+  stepperPan.setMaxSpeed(800);
   stepperPan.setAcceleration(200);
   stepperPan.moveTo(100000);
 
-  stepperTilt.setMaxSpeed(200);
+  stepperTilt.setMaxSpeed(300);
   stepperTilt.setAcceleration(60);
   stepperTilt.moveTo(100000);
 
@@ -646,7 +646,7 @@ void initCalibration()
       0B00000,
   };
 
-  lcd.createChar(0, okSign);
+  // lcd.createChar(0, okSign);
 
   //Loops until all axes are calibrated
   while (!calibSlide || !calibPan || !calibTilt)
@@ -666,8 +666,8 @@ void initCalibration()
         slideRange = abs(stepperSlide.currentPosition());
         stepperSlide.setCurrentPosition(0);
         calibSlide = true;
-        lcd.setCursor(2, 1);
-        lcd.write(byte(0));
+        // lcd.setCursor(2, 1);
+        // lcd.write(byte(0));
       }
     }
 
@@ -686,8 +686,8 @@ void initCalibration()
         panRange = abs(stepperPan.currentPosition());
         stepperPan.setCurrentPosition(0);
         calibPan = true;
-        lcd.setCursor(6, 1);
-        lcd.write(byte(0));
+        // lcd.setCursor(6, 1);
+        // lcd.write(byte(0));
       }
     }
 
@@ -711,8 +711,8 @@ void initCalibration()
       if (calibTiltLeft && stepperTilt.currentPosition() == tiltRange / 2)
       {
         calibTilt = true;
-        lcd.setCursor(10, 1);
-        lcd.write(byte(0));
+        // lcd.setCursor(10, 1);
+        // lcd.write(byte(0));
       }
     }
 
@@ -724,13 +724,14 @@ void initCalibration()
   }
 
   sendMotorRanges(); 
-  clearLCD();
-  lcd.print(F("Initial position"));
-  lcd.setCursor(0, 1);
-  lcd.print(F("set!"));
-  delay(3000);
-  clearLCD();
-  lcd.print(F("---Live Mode---")); //live mode is default state
+
+  // clearLCD();
+  // lcd.print(F("Initial position"));
+  // lcd.setCursor(0, 1);
+  // lcd.print(F("set!"));
+  // delay(3000);
+  // clearLCD();
+  // lcd.print(F("---Live Mode---")); //live mode is default state
 
 
   stepperSlide.setMaxSpeed(slowSlide);
@@ -789,8 +790,8 @@ void loop()
       if (sign == '*')
       {
         isLiveMode = true;
-        clearLCD();
-        lcd.print(F("---Live Mode---"));
+        // clearLCD();
+        // lcd.print(F("---Live Mode---"));
       }
       else if (sign == '^')
       {
@@ -812,6 +813,10 @@ void loop()
         sequenceModeSwitch(sign);
       }
     }
+    //Need to be called as often as possible
+    stepperPan.run();
+    stepperSlide.run();
+    stepperTilt.run();
   }
 }
 
@@ -1730,8 +1735,8 @@ void parseCommands(String dataFromCOM)
 //Method for sequence mode
 void sequenceMode(String dataFromCom)
 {
-  clearLCD();
-  lcd.print(F("-Sequence Mode-"));
+  // clearLCD();
+  // lcd.print(F("-Sequence Mode-"));
 
   parseCommands(dataFromCom);
 
@@ -1943,6 +1948,6 @@ void sendCurrentPositions()
 //Clears the LCD and sets the cursor to home position
 void clearLCD()
 {
-  lcd.clear();
-  lcd.home();
+  // lcd.clear();
+  // lcd.home();
 }
