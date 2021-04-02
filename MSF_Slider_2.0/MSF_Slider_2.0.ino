@@ -1,7 +1,9 @@
 /*
 MSF Slider Copyright (C) 2020  Kamil Janko
 Website: https://github.com/KirxSheppard
+         https://megaspacefighter.com
 Contact: kamil.janko@megaspacefighter.com
+
 Version: 2.0
 
 This program is free software; you can redistribute it and/or
@@ -22,31 +24,29 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "includes/dfmoco.h"
 #include "includes/tmc5160_driver.h"
 #include "includes/msf_app_ctrl.h"
+#include "includes/lcd_driver.h"
 
 SetupTmc5160 spiDriver(8); //cs pin
 Msf_driver msf;
+Lcd_driver lcd;
 
 /*
  * setup() gets called once, at the start of the program.
  */
 void setup()
 {
-    // lcd.begin();
-    // delay(100);
-
     // setup serial connection
     Serial.begin(57600);
 
     // setupPanDriver();
     spiDriver.setup(4, 24, 1900, 32, true);
 
+    lcd.setup();
+    lcd.waiting_info(); //waits for the connection from mobile app or Dragonframe
+    delay(1000);
+
     //initial message
     sendMessage(MSG_HI, 0);
-
-    //waits for the connection from mobile app or Dragonframe
-    //   clearLCD();
-    // lcd.print(F("Waiting..."));
-    delay(1000);
 
     char sign;
     bool calibrated = false;
@@ -60,19 +60,17 @@ void setup()
 
             if (sign == CMD_CALIB) // sent from mobile app - starts from classic app mode
             {
-                msf.gpio_init();
-                msf.msf_init_calib();
+                lcd.calib_info();
+                msf.init();
+                msf_init_calib();
+                lcd.init_pos_set();
                 if_msf_ctrl = true;
                 calibrated = true;
             }
             else if (sign == CMD_HI) // dragonframe connected, start from its mode
             {
-                setup_dfmoco();
-                // clearLCD();
-                // lcd.print(F("Dragonframe Mode"));
-                // lcd.setCursor(0, 1);
-                // lcd.print(F("DFMoco "));
-                // lcd.print(DFMOCO_VERSION_STRING);
+                lcd.df_mode_info(DFMOCO_VERSION_STRING);
+                setup_dfmoco();               
                 if_msf_ctrl = false;
                 calibrated = true;
             }
@@ -84,10 +82,33 @@ void loop()
 {
     if (if_msf_ctrl)
     {
-        msf.msf_ctrl_loop();
+        lcd.mode_display(msf.msf_ctrl_loop());
     }
     else
     {
         dfmoco_loop();
     }
+}
+
+void msf_init_calib()
+{
+    bool slideCalib = false, panCalib = false, tiltCalib = false;
+
+    while(!(slideCalib && panCalib && tiltCalib))
+    {
+        if(!slideCalib)
+        {
+            slideCalib = lcd.slide_calib_ok(msf.calib_slide());
+        }
+        if(!panCalib)
+        {
+            panCalib = lcd.pan_calib_ok(msf.calib_pan());
+        }
+        if(!tiltCalib)
+        {
+            tiltCalib = lcd.tilt_calib_ok(msf.calib_tilt());
+        }
+        msf.run_steppers();
+    }
+    msf.sendMotorRanges();
 }

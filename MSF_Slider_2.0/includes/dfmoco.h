@@ -1,3 +1,6 @@
+#ifndef DFMOCO_H
+#define DFMOCO_H
+
 #define DFMOCO_VERSION 1
 #define DFMOCO_VERSION_STRING "1.3.1"
 #include <Arduino.h>
@@ -1749,3 +1752,5 @@ void setup_dfmoco()
 
   #endif
 }
+
+#endif

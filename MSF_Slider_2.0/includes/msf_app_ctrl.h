@@ -1,3 +1,6 @@
+#ifndef MSF_APP_CTRL_H
+#define MSF_APP_CTRL_H
+
 /*
 Library - AccelStepper by Mike McCauley:
 http://www.airspayce.com/mikem/arduino/AccelStepper/index.html
@@ -29,17 +32,15 @@ http://www.airspayce.com/mikem/arduino/AccelStepper/index.html
 #define endStopTiltLeft 17  //tilt axis (Arduino A3)
 #define endStopTiltRight 16 //(Arduino A2)
 
-// StepperControl.addStepper(stepperSlide);
-// StepperControl.addStepper(stepperPan);
-// StepperControl.addStepper(stepperTilt);
-
 class Msf_driver
 {
 public:
     //mode, step, dir
     Msf_driver(); 
-    void msf_init_calib();
-    void msf_ctrl_loop();
+    bool calib_slide();
+    bool calib_pan();
+    bool calib_tilt();
+    char msf_ctrl_loop();
     void parseCommands(String dataFromCOM);
     void sequenceMode(String dataFromCom);
     void liveModeSwitch(char sign);
@@ -49,8 +50,9 @@ public:
     void sendMotorRanges();
     void sendCurrentPositions();
     void clearLCD();
-    void gpio_init();
-    void simultanous_steppers(String dataFromCom);
+    void init();
+    void simultaneous_steppers(String dataFromCom);
+    void run_steppers();
 
 private:
     AccelStepper stepperSlide;
@@ -58,14 +60,19 @@ private:
     AccelStepper stepperTilt;
 
     MultiStepper StepperControl;
+    long stepperPositions[3];
+
+    bool calibSlide, calibSlideRight, calibPan, calibPanRight, calibTilt, calibTiltRight, calibTiltLeft;
 
     int fastSlide, slowSlide, fastPan, slowPan, fastTilt, slowTilt;
 
     String fullCommand;
     int slideCom, panCom, tiltCom;
 
-    bool steppersInProgress;
+    bool simultaneousMove;
     bool isLiveMode;
 
     int slideRange, panRange, tiltRange;
 };
+
+#endif

@@ -1,10 +1,20 @@
 #include "includes/msf_app_ctrl.h"
 
+//Possible commends from the application:
+// ' ' - string ending with space sign marks the end of sequence mode
+// * - string ending with this sign marks the live mode (controlled from joystick)
+// ? - question about current situation, returns '!' when motors are not moving or '~' during operation
+// @ - returns ranges for each axis
+// # - returns current position of all motors
+
+
 Msf_driver::Msf_driver() : stepperSlide(AccelStepper::DRIVER, 2, 3), stepperPan(AccelStepper::DRIVER, 9, 10), stepperTilt(AccelStepper::DRIVER, 5, 6)
 {
     StepperControl.addStepper(stepperSlide);
     StepperControl.addStepper(stepperPan);
     StepperControl.addStepper(stepperTilt);
+
+    calibSlide = false, calibSlideRight = false, calibPan = false, calibPanRight = false, calibTilt = false, calibTiltRight = false, calibTiltLeft = false;
 
     //Hardcoded initial possible speed values for live mode
     fastSlide = 2000;
@@ -16,7 +26,7 @@ Msf_driver::Msf_driver() : stepperSlide(AccelStepper::DRIVER, 2, 3), stepperPan(
     fastTilt = 200;
     slowTilt = 60;
 
-    steppersInProgress = false;
+    simultaneousMove = true;
     isLiveMode = true;
 
     slideRange = 0;
@@ -24,140 +34,95 @@ Msf_driver::Msf_driver() : stepperSlide(AccelStepper::DRIVER, 2, 3), stepperPan(
     tiltRange = 0;
 }
 
-void Msf_driver::msf_init_calib()
+void Msf_driver::run_steppers()
 {
-    bool calibSlide = false, calibSlideRight = false, calibPan = false, calibPanRight = false, calibTilt = false, calibTiltRight = false, calibTiltLeft = false;
-
-    // lcd.print(F("Calibrating..."));
-    // lcd.setCursor(0, 1);
-    // lcd.print(F("S:x P:x T:x"));
-
-    stepperSlide.setMaxSpeed(2200);
-    stepperSlide.setAcceleration(slowSlide + (fastSlide - slowSlide) * 0.2);
-    stepperSlide.moveTo(100000);
-
-    stepperPan.setMaxSpeed(800);
-    stepperPan.setAcceleration(slowPan + (fastPan - slowPan) * 0.2);
-    stepperPan.moveTo(100000);
-
-    stepperTilt.setMaxSpeed(300);
-    stepperTilt.setAcceleration(slowTilt + (fastTilt - slowTilt) * 0.2);
-    stepperTilt.moveTo(100000);
-
-    //Defines checkbox sign on the LCD display
-    byte okSign[8] = {
-        0B00000,
-        0B00001,
-        0B00001,
-        0B00010,
-        0B10010,
-        0B01100,
-        0B00100,
-        0B00000,
-    };
-
-    // lcd.createChar(0, okSign);
-
-    //Loops until all axes are calibrated
-    while (!calibSlide || !calibPan || !calibTilt)
-    {
-        //Slide axis
-        if (!calibSlide)
-        {
-            if (digitalRead(endStopRight) != HIGH && !calibSlideRight)
-            {
-                stepperSlide.setCurrentPosition(0);
-                calibSlideRight = true;
-
-                stepperSlide.moveTo(-100000);
-            }
-            else if (digitalRead(endStopLeft) != HIGH && calibSlideRight)
-            {
-                slideRange = abs(stepperSlide.currentPosition());
-                stepperSlide.setCurrentPosition(0);
-                calibSlide = true;
-                // lcd.setCursor(2, 1);
-                // lcd.write(byte(0));
-            }
-        }
-
-        //Pan axis
-        if (!calibPan)
-        {
-            if (digitalRead(endStopPanRight) != HIGH && !calibPanRight)
-            {
-                stepperPan.setCurrentPosition(0);
-                calibPanRight = true;
-
-                stepperPan.moveTo(-100000);
-            }
-            else if (digitalRead(endStopPanLeft) != HIGH && calibPanRight)
-            {
-                panRange = abs(stepperPan.currentPosition());
-                stepperPan.setCurrentPosition(0);
-                calibPan = true;
-                // lcd.setCursor(6, 1);
-                // lcd.write(byte(0));
-            }
-        }
-
-        //Tilt axis
-        if (!calibTilt)
-        {
-            if (digitalRead(endStopTiltRight) != HIGH && !calibTiltRight)
-            {
-                stepperTilt.setCurrentPosition(0);
-                calibTiltRight = true;
-
-                stepperTilt.moveTo(-100000);
-            }
-            if (digitalRead(endStopTiltLeft) != HIGH && calibTiltRight && !calibTiltLeft)
-            {
-                tiltRange = abs(stepperTilt.currentPosition());
-                stepperTilt.setCurrentPosition(0);
-                calibTiltLeft = true;
-                stepperTilt.moveTo(tiltRange / 2);
-            }
-            if (calibTiltLeft && stepperTilt.currentPosition() == tiltRange / 2)
-            {
-                calibTilt = true;
-                // lcd.setCursor(10, 1);
-                // lcd.write(byte(0));
-            }
-        }
-
-        //Need to be called as often as possible
-        stepperPan.run();
-        stepperSlide.run();
-        stepperTilt.run();
-    }
-
-    sendMotorRanges();
-
-    // clearLCD();
-    // lcd.print(F("Initial position"));
-    // lcd.setCursor(0, 1);
-    // lcd.print(F("set!"));
-    // delay(3000);
-    // clearLCD();
-    // lcd.print(F("---Live Mode---")); //live mode is default state
-
-    stepperSlide.setMaxSpeed(slowSlide);
-    stepperPan.setMaxSpeed(slowPan);
-    stepperTilt.setMaxSpeed(slowTilt);
+    //Need to be called as often as possible while moving
+    stepperPan.run();
+    stepperSlide.run();
+    stepperTilt.run();
 }
 
-void Msf_driver::msf_ctrl_loop()
+bool Msf_driver::calib_slide()
 {
+    //Slide axis
+    if (!calibSlide)
+    {
+        if (digitalRead(endStopRight) != HIGH && !calibSlideRight)
+        {
+            stepperSlide.setCurrentPosition(0);
+            calibSlideRight = true;
+
+            stepperSlide.moveTo(-100000);
+        }
+        else if (digitalRead(endStopLeft) != HIGH && calibSlideRight)
+        {
+            slideRange = abs(stepperSlide.currentPosition());
+            stepperSlide.setCurrentPosition(0);
+            calibSlide = true;
+        }
+    }
+    return calibSlide;
+}
+
+bool Msf_driver::calib_pan()
+{
+    //Pan axis
+    if (!calibPan)
+    {
+        if (digitalRead(endStopPanRight) != HIGH && !calibPanRight)
+        {
+            stepperPan.setCurrentPosition(0);
+            calibPanRight = true;
+
+            stepperPan.moveTo(-100000);
+        }
+        else if (digitalRead(endStopPanLeft) != HIGH && calibPanRight)
+        {
+            panRange = abs(stepperPan.currentPosition());
+            stepperPan.setCurrentPosition(0);
+            calibPan = true;
+        }
+    }
+    return calibPan;
+}
+
+bool Msf_driver::calib_tilt()
+{
+    //Tilt axis
+    if (!calibTilt)
+    {
+        if (digitalRead(endStopTiltRight) != HIGH && !calibTiltRight)
+        {
+            stepperTilt.setCurrentPosition(0);
+            calibTiltRight = true;
+
+            stepperTilt.moveTo(-100000);
+        }
+        if (digitalRead(endStopTiltLeft) != HIGH && calibTiltRight && !calibTiltLeft)
+        {
+            tiltRange = abs(stepperTilt.currentPosition());
+            stepperTilt.setCurrentPosition(0);
+            calibTiltLeft = true;
+            stepperTilt.moveTo(tiltRange / 2);
+        }
+        if (calibTiltLeft && stepperTilt.currentPosition() == tiltRange / 2)
+        {
+            calibTilt = true;
+        }
+    }
+    return calibTilt;
+}
+
+char Msf_driver::msf_ctrl_loop()
+{
+    char sign;
     if (Serial.available())
     {
-        char sign = Serial.read();
+        sign = Serial.read();
 
         if (sign == '*')
         {
             isLiveMode = true;
-            // clearLCD();
-            // lcd.print(F("---Live Mode---"));
         }
         else if (sign == '^')
         {
@@ -171,13 +136,6 @@ void Msf_driver::msf_ctrl_loop()
         {
             setMinMotorSpeed();
         }
-
-        //Possible commends from the application:
-        // ' ' - string ending with space sign marks the end of sequence mode
-        // * - string ending with this sign marks the live mode (controlled from joystick)
-        // ? - question about current situation, returns '!' when motors are not moving or '~' during operation
-        // @ - returns ranges for each axis
-        // # - returns current position of all motors
         if (isLiveMode)
         {
             liveModeSwitch(sign);
@@ -188,9 +146,9 @@ void Msf_driver::msf_ctrl_loop()
         }
     }
     //Need to be called as often as possible
-    stepperPan.run();
-    stepperSlide.run();
-    stepperTilt.run();
+    run_steppers();
+
+    return sign;
 }
 
 //Parses the key instructions for sequence mode
@@ -210,12 +168,21 @@ void Msf_driver::parseCommands(String dataFromCOM)
         tiltCom = 0;
 }
 
+void Msf_driver::simultaneous_steppers(String dataFromCom)
+{
+    parseCommands(dataFromCom);
+
+    stepperPositions[0] = slideCom;
+    stepperPositions[1] = panCom;
+    stepperPositions[2] = tiltCom;
+
+    StepperControl.moveTo(stepperPositions);
+    StepperControl.runSpeedToPosition();
+}
+
 //Method for sequence mode
 void Msf_driver::sequenceMode(String dataFromCom)
 {
-    // clearLCD();
-    // lcd.print(F("-Sequence Mode-"));
-
     parseCommands(dataFromCom);
 
     //Protection from the values extending possible ranges
@@ -237,18 +204,21 @@ void Msf_driver::sequenceMode(String dataFromCom)
     // stepperPan.setMaxSpeed(300);
     // stepperTilt.setMaxSpeed(300);
 
-    // stepperPositions[0] = slideCom;
-    // stepperPositions[1] = panCom;
-    // stepperPositions[2] = tiltCom;
+    if (simultaneousMove)
+    {
+        stepperPositions[0] = slideCom;
+        stepperPositions[1] = panCom;
+        stepperPositions[2] = tiltCom;
 
-    // StepperControl.moveTo(stepperPositions);
-    // StepperControl.runSpeedToPosition();
-
-    stepperSlide.moveTo(slideCom);
-    stepperPan.moveTo(panCom);
-    stepperTilt.moveTo(tiltCom);
-
-    steppersInProgress = true;
+        StepperControl.moveTo(stepperPositions);
+        StepperControl.runSpeedToPosition();
+    }
+    else
+    {
+        stepperSlide.moveTo(slideCom);
+        stepperPan.moveTo(panCom);
+        stepperTilt.moveTo(tiltCom);
+    }
 }
 
 void Msf_driver::liveModeSwitch(char sign)
@@ -519,14 +489,7 @@ void Msf_driver::sendCurrentPositions()
     Serial.println(temp);
 }
 
-//Clears the LCD and sets the cursor to home position
-void Msf_driver::clearLCD()
-{
-    // lcd.clear();
-    // lcd.home();
-}
-
-void Msf_driver::gpio_init()
+void Msf_driver::init()
 {
     pinMode(endStopRight, INPUT); //for the right endstop
     pinMode(endStopLeft, INPUT);  //for the left endstop
@@ -534,4 +497,16 @@ void Msf_driver::gpio_init()
     pinMode(endStopTiltRight, INPUT);
     pinMode(endStopPanRight, INPUT);
     pinMode(endStopPanLeft, INPUT);
+
+    stepperSlide.setMaxSpeed(2200);
+    stepperSlide.setAcceleration(slowSlide + (fastSlide - slowSlide) * 0.2);
+    stepperSlide.moveTo(100000);
+
+    stepperPan.setMaxSpeed(800);
+    stepperPan.setAcceleration(slowPan + (fastPan - slowPan) * 0.2);
+    stepperPan.moveTo(100000);
+
+    stepperTilt.setMaxSpeed(300);
+    stepperTilt.setAcceleration(slowTilt + (fastTilt - slowTilt) * 0.2);
+    stepperTilt.moveTo(100000);
 }
