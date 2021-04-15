@@ -1,8 +1,7 @@
 #include "includes/lcd_driver.h"
 
-Lcd_driver::Lcd_driver() : lcd(0x27, 2, 16)
-{
-    lcd.createChar(0, okSign);
+Lcd_driver::Lcd_driver(uint8_t lcd_addr, uint8_t lcd_cols, uint8_t lcd_rows) : lcd(lcd_addr, lcd_cols, lcd_rows)
+{  
 }
 
 void Lcd_driver::clear_lcd()
@@ -28,10 +27,11 @@ void Lcd_driver::df_mode_info(String dfVersion)
     lcd.print(dfVersion);
 }
 
-void Lcd_driver::setup()
+void Lcd_driver::begin_display()
 {
     lcd.begin();
     delay(100);
+    lcd.createChar(0, okSign);
 }
 
 void Lcd_driver::waiting_info()

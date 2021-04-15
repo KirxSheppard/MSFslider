@@ -1,6 +1,9 @@
 #include "includes/tmc5160_driver.h"
 
-void SetupTmc5160::setup(uint8_t toff, uint8_t blank_time, uint16_t rms_current, uint16_t microsteps, bool en_pwm_mode)
+
+SetupTmc5160::SetupTmc5160(uint16_t pinCS, float RS, uint16_t pinMOSI, uint16_t pinMISO, uint16_t pinSCK) : driver(pinCS, RS, pinMOSI, pinMISO, pinSCK) {}
+
+void SetupTmc5160::setup_driver(uint8_t toff, uint8_t blank_time, uint16_t rms_current, uint16_t microsteps, bool en_pwm_mode)
 {
     // SPI.begin();
 

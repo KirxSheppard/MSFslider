@@ -18,8 +18,8 @@ const byte okSign[8] = {
 class Lcd_driver
 {
 public:
-    Lcd_driver();
-    void setup();
+    Lcd_driver(uint8_t lcd_addr, uint8_t lcd_cols, uint8_t lcd_rows);
+    void begin_display();
     void clear_lcd();
     void calib_info();
     void df_mode_info(String dfVersion);

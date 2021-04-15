@@ -9,6 +9,8 @@ http://www.airspayce.com/mikem/arduino/AccelStepper/index.html
 #include <AccelStepper.h>
 #include <MultiStepper.h>
 
+#define NUM_OF_STEPPERS  3
+
 //defines modes
 #define APP_MODE 94 // has to be send to access classic app mode
 #define DRAGON_MODE 95
@@ -53,13 +55,18 @@ public:
     void init();
     void simultaneous_steppers(String dataFromCom);
     void run_steppers();
+    
+    void acceleration_sequence();
 
 private:
     AccelStepper stepperSlide;
     AccelStepper stepperPan;
     AccelStepper stepperTilt;
 
-    MultiStepper StepperControl;
+    MultiStepper SteppersControl;
+
+    // Msf_Multi SteppersControl;
+
     long stepperPositions[3];
 
     bool calibSlide, calibSlideRight, calibPan, calibPanRight, calibTilt, calibTiltRight, calibTiltLeft;
@@ -67,7 +74,7 @@ private:
     int fastSlide, slowSlide, fastPan, slowPan, fastTilt, slowTilt;
 
     String fullCommand;
-    int slideCom, panCom, tiltCom;
+    long slideCom, panCom, tiltCom;
 
     bool simultaneousMove;
     bool isLiveMode;

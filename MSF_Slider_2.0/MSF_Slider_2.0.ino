@@ -26,9 +26,12 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "includes/msf_app_ctrl.h"
 #include "includes/lcd_driver.h"
 
-SetupTmc5160 spiDriver(8); //cs pin
+SetupTmc5160 spiDriver(8, 0.075f, 11, 12, 13); //cs pin
 Msf_driver msf;
-Lcd_driver lcd;
+Lcd_driver lcd(0x27, 2, 16);
+
+bool if_msf_ctrl = false;
+#define SERIAL_DEVICE Serial
 
 /*
  * setup() gets called once, at the start of the program.
@@ -39,9 +42,9 @@ void setup()
     Serial.begin(57600);
 
     // setupPanDriver();
-    spiDriver.setup(4, 24, 1900, 32, true);
+    spiDriver.setup_driver(4, 24, 1900, 32, true);
 
-    lcd.setup();
+    lcd.begin_display();
     lcd.waiting_info(); //waits for the connection from mobile app or Dragonframe
     delay(1000);
 
@@ -67,7 +70,7 @@ void setup()
                 if_msf_ctrl = true;
                 calibrated = true;
             }
-            else if (sign == CMD_HI) // dragonframe connected, start from its mode
+            else if (sign == /*CMD_HI*/ 10) // dragonframe connected, start from its mode
             {
                 lcd.df_mode_info(DFMOCO_VERSION_STRING);
                 setup_dfmoco();               

@@ -7,31 +7,9 @@
 // @ - returns ranges for each axis
 // # - returns current position of all motors
 
-
 Msf_driver::Msf_driver() : stepperSlide(AccelStepper::DRIVER, 2, 3), stepperPan(AccelStepper::DRIVER, 9, 10), stepperTilt(AccelStepper::DRIVER, 5, 6)
 {
-    StepperControl.addStepper(stepperSlide);
-    StepperControl.addStepper(stepperPan);
-    StepperControl.addStepper(stepperTilt);
-
-    calibSlide = false, calibSlideRight = false, calibPan = false, calibPanRight = false, calibTilt = false, calibTiltRight = false, calibTiltLeft = false;
-
-    //Hardcoded initial possible speed values for live mode
-    fastSlide = 2000;
-    slowSlide = 600;
-
-    fastPan = 500;
-    slowPan = 100;
-
-    fastTilt = 200;
-    slowTilt = 60;
-
-    simultaneousMove = true;
-    isLiveMode = true;
-
-    slideRange = 0;
-    panRange = 0;
-    tiltRange = 0;
+   
 }
 
 void Msf_driver::run_steppers()
@@ -145,7 +123,7 @@ char Msf_driver::msf_ctrl_loop()
             sequenceModeSwitch(sign);
         }
     }
-    //Need to be called as often as possible
+    //Needs to be called as often as possible
     run_steppers();
 
     return sign;
@@ -168,6 +146,7 @@ void Msf_driver::parseCommands(String dataFromCOM)
         tiltCom = 0;
 }
 
+//optional
 void Msf_driver::simultaneous_steppers(String dataFromCom)
 {
     parseCommands(dataFromCom);
@@ -176,8 +155,8 @@ void Msf_driver::simultaneous_steppers(String dataFromCom)
     stepperPositions[1] = panCom;
     stepperPositions[2] = tiltCom;
 
-    StepperControl.moveTo(stepperPositions);
-    StepperControl.runSpeedToPosition();
+    SteppersControl.moveTo(stepperPositions);
+    SteppersControl.runSpeedToPosition();
 }
 
 //Method for sequence mode
@@ -200,24 +179,83 @@ void Msf_driver::sequenceMode(String dataFromCom)
     if (tiltCom < 0)
         tiltCom = 0;
 
-    // stepperSlide.setMaxSpeed(600);
-    // stepperPan.setMaxSpeed(300);
-    // stepperTilt.setMaxSpeed(300);
-
     if (simultaneousMove)
-    {
-        stepperPositions[0] = slideCom;
-        stepperPositions[1] = panCom;
-        stepperPositions[2] = tiltCom;
+    {   
 
-        StepperControl.moveTo(stepperPositions);
-        StepperControl.runSpeedToPosition();
+        acceleration_sequence();
+        // stepperPositions[0] = slideCom;
+        // stepperPositions[1] = panCom;
+        // stepperPositions[2] = tiltCom;
+
+        // SteppersControl.moveTo(stepperPositions);
+        // SteppersControl.runSpeedToPosition();
     }
     else
     {
         stepperSlide.moveTo(slideCom);
         stepperPan.moveTo(panCom);
         stepperTilt.moveTo(tiltCom);
+    }
+}
+
+//WIP
+void Msf_driver::acceleration_sequence()
+{
+    AccelStepper *steppers[NUM_OF_STEPPERS];
+    steppers[0] = &stepperSlide;
+    steppers[1] = &stepperPan;
+    steppers[2] = &stepperTilt;
+
+    long steppersDest[NUM_OF_STEPPERS];
+    steppersDest[0] = slideCom;
+    steppersDest[1] = panCom;
+    steppersDest[2] = tiltCom;
+
+    // First find the stepper that will take the longest time to move
+    float longestTime = 0.0;
+
+    int slowestStepper = 0;
+    for (int i = 0; i < NUM_OF_STEPPERS; i++)
+    {
+        long thisDistance = steppersDest[i] - steppers[i]->currentPosition();
+        float thisTime = abs(thisDistance) / steppers[i]->maxSpeed();
+
+        if (thisTime > longestTime)
+        {
+            longestTime = thisTime;
+            slowestStepper = i;
+        }
+    }
+
+    if (longestTime > 0.0)
+    {
+        // Now work out a new max speed for each stepper so they will all
+        // arrive at the same time of longestTime
+
+        float t_ac = steppers[slowestStepper]->maxSpeed() / steppers[slowestStepper]->acceleration();
+        float s_ac = steppers[slowestStepper]->acceleration() * pow(t_ac, 2) / 2;
+        float s = steppers[slowestStepper]->distanceToGo() - 2 * s_ac;
+        float t_lin = s / steppers[slowestStepper]->maxSpeed();
+        float t_total = 2 * t_ac + t_lin;
+
+        for (int i = 0; i < NUM_OF_STEPPERS; i++)
+        {
+            steppers[i]->moveTo(steppersDest[i]);
+
+            if (i == slowestStepper)
+                continue;
+
+            //calculating new speed
+            long thisDistance = steppersDest[i] - steppers[i]->currentPosition();
+            float thisSpeed = thisDistance / longestTime;
+            // steppers[i]->moveTo(absolute[i]); // New target position (resets speed)
+            steppers[i]->setSpeed(thisSpeed); // New speed
+
+            //calculating acceleration
+            float axis_s_ac = steppers[i]->distanceToGo() * 0.25;
+            float axis_ac = 2 * axis_s_ac / pow(t_ac, 2);
+            steppers[i]->setAcceleration(axis_ac);
+        }
     }
 }
 
@@ -490,13 +528,36 @@ void Msf_driver::sendCurrentPositions()
 }
 
 void Msf_driver::init()
-{
+{   
     pinMode(endStopRight, INPUT); //for the right endstop
     pinMode(endStopLeft, INPUT);  //for the left endstop
     pinMode(endStopTiltLeft, INPUT);
     pinMode(endStopTiltRight, INPUT);
     pinMode(endStopPanRight, INPUT);
     pinMode(endStopPanLeft, INPUT);
+
+    SteppersControl.addStepper(stepperSlide);
+    SteppersControl.addStepper(stepperPan);
+    SteppersControl.addStepper(stepperTilt);
+
+    calibSlide = false, calibSlideRight = false, calibPan = false, calibPanRight = false, calibTilt = false, calibTiltRight = false, calibTiltLeft = false;
+
+    //Hardcoded initial possible speed values for live mode
+    fastSlide = 2000;
+    slowSlide = 600;
+
+    fastPan = 500;
+    slowPan = 100;
+
+    fastTilt = 200;
+    slowTilt = 60;
+
+    simultaneousMove = true;
+    isLiveMode = true;
+
+    slideRange = 0;
+    panRange = 0;
+    tiltRange = 0;
 
     stepperSlide.setMaxSpeed(2200);
     stepperSlide.setAcceleration(slowSlide + (fastSlide - slowSlide) * 0.2);
@@ -509,4 +570,5 @@ void Msf_driver::init()
     stepperTilt.setMaxSpeed(300);
     stepperTilt.setAcceleration(slowTilt + (fastTilt - slowTilt) * 0.2);
     stepperTilt.moveTo(100000);
+    
 }

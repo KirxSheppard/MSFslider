@@ -408,8 +408,6 @@ boolean goMoReady;
 int     goMoDelayTime;
 
 Motor motors[MOTOR_COUNT];
-
-bool if_msf_ctrl = false;
       
 void updateStepDirection(void);
 void dfmoco_loop();
