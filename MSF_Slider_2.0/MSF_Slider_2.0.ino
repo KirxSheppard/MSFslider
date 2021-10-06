@@ -1,5 +1,5 @@
 /*
-MSF Slider Copyright (C) 2020  Kamil Janko
+MSF Slider Copyright (C) 2021  Kamil Janko
 Website: https://github.com/KirxSheppard
          https://megaspacefighter.com
 Contact: kamil.janko@megaspacefighter.com
@@ -26,9 +26,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "includes/msf_app_ctrl.h"
 #include "includes/lcd_driver.h"
 
-SetupTmc5160 spiDriver(8, 0.075f, 11, 12, 13); //cs pin
-Msf_driver msf;
+SetupTmc5160 spiDriver(8, 0.075f, 11, 12, 13);
 Lcd_driver lcd(0x27, 2, 16);
+Msf_driver msf;
 
 bool if_msf_ctrl = false;
 #define SERIAL_DEVICE Serial

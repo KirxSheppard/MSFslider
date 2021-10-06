@@ -9,7 +9,6 @@
 
 Msf_driver::Msf_driver() : stepperSlide(AccelStepper::DRIVER, 2, 3), stepperPan(AccelStepper::DRIVER, 9, 10), stepperTilt(AccelStepper::DRIVER, 5, 6)
 {
-   
 }
 
 void Msf_driver::run_steppers()
@@ -114,15 +113,20 @@ char Msf_driver::msf_ctrl_loop()
         {
             setMinMotorSpeed();
         }
-        if (isLiveMode)
+        else if (sign == '(') //enable manual mode
         {
-            liveModeSwitch(sign);
-        }
-        else
-        {
-            sequenceModeSwitch(sign);
+            setManualMode();
         }
     }
+    if (isLiveMode)
+    {
+        liveModeSwitch(sign);
+    }
+    else
+    {
+        sequenceModeSwitch(sign);
+    }
+
     //Needs to be called as often as possible
     run_steppers();
 
@@ -180,7 +184,7 @@ void Msf_driver::sequenceMode(String dataFromCom)
         tiltCom = 0;
 
     if (simultaneousMove)
-    {   
+    {
 
         acceleration_sequence();
         // stepperPositions[0] = slideCom;
@@ -446,6 +450,8 @@ void Msf_driver::sequenceModeSwitch(char sign)
 
 void Msf_driver::setMaxMotorSpeed()
 {
+    bool endOfMsg = false;
+
     while (Serial.available())
     {
         char sign = Serial.read();
@@ -455,6 +461,7 @@ void Msf_driver::setMaxMotorSpeed()
             fullCommand += sign;
             parseCommands(fullCommand);
             fullCommand = "";
+            endOfMsg = true;
             break;
         case '\r': //ignore CR
             break;
@@ -471,13 +478,18 @@ void Msf_driver::setMaxMotorSpeed()
             if (tiltCom != 0)
                 fastTilt = tiltCom;
         }
-        if (Serial.read() == ' ')
+        if (endOfMsg)
+        {
+            endOfMsg = false;
             break;
+        }
     }
 }
 
 void Msf_driver::setMinMotorSpeed()
 {
+    bool endOfMsg = false;
+
     while (Serial.available())
     {
         char sign = Serial.read();
@@ -487,6 +499,7 @@ void Msf_driver::setMinMotorSpeed()
             fullCommand += sign;
             parseCommands(fullCommand);
             fullCommand = "";
+            endOfMsg = true;
             break;
         case '\r': //ignore CR
             break;
@@ -503,9 +516,19 @@ void Msf_driver::setMinMotorSpeed()
             if (fastTilt != 0)
                 slowTilt = tiltCom;
         }
-        if (Serial.read() == ' ')
+        if (endOfMsg)
+        {
+            endOfMsg = false;
             break;
+        }
     }
+}
+
+void Msf_driver::setManualMode()
+{
+    stepperSlide.disableOutputs();
+    encoder.rangeCounter(32);
+    
 }
 
 //Sends ranges of each axis to the appliaction
@@ -528,7 +551,7 @@ void Msf_driver::sendCurrentPositions()
 }
 
 void Msf_driver::init()
-{   
+{
     pinMode(endStopRight, INPUT); //for the right endstop
     pinMode(endStopLeft, INPUT);  //for the left endstop
     pinMode(endStopTiltLeft, INPUT);
@@ -543,13 +566,13 @@ void Msf_driver::init()
     calibSlide = false, calibSlideRight = false, calibPan = false, calibPanRight = false, calibTilt = false, calibTiltRight = false, calibTiltLeft = false;
 
     //Hardcoded initial possible speed values for live mode
-    fastSlide = 2000;
+    fastSlide = 3000;
     slowSlide = 600;
 
-    fastPan = 500;
+    fastPan = 1000;
     slowPan = 100;
 
-    fastTilt = 200;
+    fastTilt = 400;
     slowTilt = 60;
 
     simultaneousMove = true;
@@ -559,16 +582,15 @@ void Msf_driver::init()
     panRange = 0;
     tiltRange = 0;
 
-    stepperSlide.setMaxSpeed(2200);
+    stepperSlide.setMaxSpeed(fastSlide);
     stepperSlide.setAcceleration(slowSlide + (fastSlide - slowSlide) * 0.2);
     stepperSlide.moveTo(100000);
 
-    stepperPan.setMaxSpeed(800);
+    stepperPan.setMaxSpeed(fastPan);
     stepperPan.setAcceleration(slowPan + (fastPan - slowPan) * 0.2);
     stepperPan.moveTo(100000);
 
-    stepperTilt.setMaxSpeed(300);
+    stepperTilt.setMaxSpeed(fastTilt);
     stepperTilt.setAcceleration(slowTilt + (fastTilt - slowTilt) * 0.2);
     stepperTilt.moveTo(100000);
-    
 }

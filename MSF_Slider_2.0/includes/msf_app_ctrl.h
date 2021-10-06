@@ -8,6 +8,7 @@ http://www.airspayce.com/mikem/arduino/AccelStepper/index.html
 #include <Arduino.h>
 #include <AccelStepper.h>
 #include <MultiStepper.h>
+#include "as5600_driver.h"
 
 #define NUM_OF_STEPPERS  3
 
@@ -55,6 +56,7 @@ public:
     void init();
     void simultaneous_steppers(String dataFromCom);
     void run_steppers();
+    void setManualMode();
     
     void acceleration_sequence();
 
@@ -64,6 +66,8 @@ private:
     AccelStepper stepperTilt;
 
     MultiStepper SteppersControl;
+
+    As5600_driver encoder;
 
     // Msf_Multi SteppersControl;
 
