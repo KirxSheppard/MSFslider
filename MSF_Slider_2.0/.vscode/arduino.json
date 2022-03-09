@@ -1,0 +1,6 @@
+{
+    "sketch": "MSF_Slider_2.0.ino",
+    "board": "arduino:avr:mega",
+    "programmer": "arduino:avrispmkii",
+    "configuration": "cpu=atmega2560"
+}
